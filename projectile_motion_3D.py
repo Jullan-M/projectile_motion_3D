@@ -13,7 +13,9 @@ def calc_deg(deg, mins, secs):
     return deg + mins/60 + secs/3600
 
 def r_vec_to_coord(r_vec):
-    return np.rad2deg(np.array([np.pi/2-r_vec[0]/r_vec[2], r_vec[1]//r_vec[2], r_vec[2]]))
+    lambd = np.pi / 2 - r_vec[0] / r_vec[2]
+    phi = r_vec[1] / (np.cos(lambd) * r_vec[2])
+    return np.rad2deg(np.array([lambd, phi/(np.cos(lambd)*r_vec[2])]))
 
 def r_vec_to_cartesian(r_vec):
     lambd = np.pi/2-r_vec[0]/r_vec[2]
@@ -252,12 +254,12 @@ class Motion_3D_drag_adiabatic(Motion_3D_drag):
 
 if (__name__ == "__main__"):
     th1 = calc_th(COORD_CREPY, COORD_PARIS)
-    proj1 = Projectile_3D(COORD_CREPY, 1640, th1, 32.7)
+    proj1 = Projectile_3D(COORD_CREPY, 1640, th1, 33)
     mo1 = Motion_3D_drag_adiabatic(proj1, 0.01)
     mo1.calculate_trajectory()
     mo1_line = np.apply_along_axis(r_vec_to_cartesian, 1, mo1.r_vec_arr)
-    print(R_EARTH*calc_circ_dist(np.radians(COORD_CREPY), np.radians(COORD_PARIS)))
-    print(mo1.distance)
+    print(COORD_PARIS)
+    print(r_vec_to_coord(mo1.r_vec_arr[-1]))
     '''
     ========================
     3D surface (solid color)
@@ -295,6 +297,6 @@ if (__name__ == "__main__"):
     ax.plot(crepy_paris_line[0], crepy_paris_line[1], crepy_paris_line[2])
     ax.plot(mo1_line[:,0], mo1_line[:,1], mo1_line[:,2])
 
-    ax.view_init(azim=45, elev=90)
+    ax.view_init(azim=45, elev=45)
 
     plt.show()
