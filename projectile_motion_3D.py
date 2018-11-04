@@ -14,8 +14,8 @@ def calc_deg(deg, mins, secs):
 
 def r_vec_to_coord(r_vec):
     lambd = np.pi / 2 - r_vec[0] / r_vec[2]
-    phi = r_vec[1] / (np.cos(lambd) * r_vec[2])
-    return np.rad2deg(np.array([lambd, phi/(np.cos(lambd)*r_vec[2])]))
+    phi = r_vec[1]/(np.cos(lambd)*r_vec[2])
+    return np.rad2deg(np.array([lambd, phi]))
 
 def r_vec_to_cartesian(r_vec):
     lambd = np.pi/2-r_vec[0]/r_vec[2]
@@ -102,8 +102,8 @@ class Projectile_3D:
     def update_lambd(self):
         self.lambd = np.pi/2 - self.r_vec[0]/self.r
 
-    def update_phi(self):
-        self.phi = self.r_vec[1]/self.r
+    def update_phi(self):   #   NOTE: lambd has to be updated BEFORE phi.
+        self.phi = self.r_vec[1]/(np.cos(self.lambd)*self.r_vec[2])
 
     def update_th(self):
         self.th = np.arctan2(self.v_vec[1], self.v_vec[0])
@@ -258,8 +258,10 @@ if (__name__ == "__main__"):
     mo1 = Motion_3D_drag_adiabatic(proj1, 0.01)
     mo1.calculate_trajectory()
     mo1_line = np.apply_along_axis(r_vec_to_cartesian, 1, mo1.r_vec_arr)
-    print(COORD_PARIS)
-    print(r_vec_to_coord(mo1.r_vec_arr[-1]))
+    print("Crepy - Paris distance:\t", R_EARTH * calc_circ_dist(np.radians(COORD_CREPY), np.radians(COORD_PARIS)))
+    print("Projectile distance:\t", mo1.distance)
+    print("Paris coords:\t\t", COORD_PARIS)
+    print("Projectile coords:\t", r_vec_to_coord(mo1.r_vec_arr[-1]))
     '''
     ========================
     3D surface (solid color)
