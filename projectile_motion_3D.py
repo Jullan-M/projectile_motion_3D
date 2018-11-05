@@ -3,54 +3,10 @@ __author__ = 'Jullan'
 #Made by Jullan
 import numpy as np
 from rk4 import Rk4
-from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-
-
-R_EARTH = 6371e3
-
-def calc_deg(deg, mins, secs):
-    return deg + mins/60 + secs/3600
-
-def r_vec_to_coord(r_vec):
-    lambd = np.pi / 2 - r_vec[0] / r_vec[2]
-    phi = r_vec[1]/(np.cos(lambd)*r_vec[2])
-    return np.rad2deg(np.array([lambd, phi]))
-
-def r_vec_to_cartesian(r_vec):
-    lambd = np.pi/2-r_vec[0]/r_vec[2]
-    phi = r_vec[1]/(np.cos(lambd)*r_vec[2])
-    return r_vec[2] * np.array([np.cos(lambd) * np.cos(phi),
-                                np.cos(lambd) * np.sin(phi),
-                                np.sin(lambd)])
-
-def coord_to_cartesian(coord, r = R_EARTH):
-    coord_rad = np.radians(coord)
-    return r * np.array([np.cos(coord_rad[0]) * np.cos(coord_rad[1]),
-                        np.cos(coord_rad[0]) * np.sin(coord_rad[1]),
-                        np.sin(coord_rad[0])])
-
-
-#   Azimuthal equidistant projection
-#   Wiki: https://en.wikipedia.org/wiki/Azimuthal_equidistant_projection
-#       Calculation of the azimuth.
-def calc_th(coord1_deg, coord2_deg): # theta is 0 on the pos x-axis and pi/2 on the pos y-axis in the defined coordinate system
-    coord1 = np.radians(coord1_deg)
-    coord2 = np.radians(coord2_deg)
-    return np.rad2deg(np.pi - np.arctan2(np.cos(coord2[0])*np.sin(coord2[1]-coord1[1]),
-                     (np.cos(coord1[0]) * np.sin(coord2[0]) - np.sin(coord1[0]) * np.cos(coord2[0]) * np.cos(coord2[1]-coord1[1]))))
-#       Calculation of arc length using the formula of the great circle distance.
-def calc_circ_dist(coord1, coord2):
-    return np.arccos(np.sin(coord1[0]) * np.sin(coord2[0]) + np.cos(coord1[0]) * np.cos(coord2[0]) * np.cos(coord2[1]-coord1[1]))
-
-def interpolate_xl( x0, x1, y0, y1):
-    return (x0 - y0 * x1 / y1) / (- y0 / y1 + 1)
-
-COORD_CREPY = [calc_deg(49, 36, 18), calc_deg(3,30,53)]
-COORD_PARIS = [calc_deg(48, 51, 24), calc_deg(2,21,3)]
+import utilities as ut
 
 class Projectile_3D:
-    def __init__(self, coord, v0, th0, alph0, m = 106, w = 7.29e-5, r = R_EARTH, name = None):  # Latitude, longitude and theta arguments are all in degrees.
+    def __init__(self, coord, v0, th0, alph0, m = 106, w = 7.29e-5, r = 6371e3, name = None):  # Latitude, longitude and theta arguments are all in degrees.
         self.name = name
         #   Initial values
         self.lambd0 = np.radians(coord[0])   #   LATITUDE
@@ -74,10 +30,10 @@ class Projectile_3D:
         self.alph = self.alph0
         self.v = self.v0
         self.v_vec = self.v * np.array([np.cos(self.alph) * np.cos(self.th), np.cos(self.alph) * np.sin(self.th), np.sin(self.alph)])
-        self.w_vec = np.array([-self.w * np.cos(self.lambd0), 0, self.w * np.sin(self.lambd0)])
+        self.w_vec = self.w * np.array([- np.cos(self.lambd), 0, np.sin(self.lambd)])
 
         self.wv_cross = np.cross(self.w_vec, self.v_vec)
-        self.wr_cross = np.cross(self.w_vec, self.r_vec)
+        self.wwr_cross =  np.cross(self.w_vec, np.cross(self.w_vec, self.r_vec))
         self.t = self.t0
 
     def __str__(self):
@@ -90,10 +46,10 @@ class Projectile_3D:
         self.th = self.th0
         self.v = self.v0
         self.v_vec = self.v0 * np.array([np.cos(self.alph0) * np.cos(self.th0), np.cos(self.alph0) * np.sin(self.th0), np.sin(self.alph0)])
-        self.w_vec = np.array([-self.w * np.cos(self.lambd0), 0, self.w * np.sin(self.lambd0)])
+        self.w_vec = np.array([-self.w * np.cos(self.lambd), 0, self.w * np.sin(self.lambd)])
 
         self.wv_cross = np.cross(self.w_vec, self.v_vec)
-        self.wr_cross = np.cross(self.w_vec, self.r_vec)
+        self.wwr_cross = np.cross(self.w_vec, np.cross(self.w_vec, self.r_vec))
         self.t = 0
 
     def update_v(self):
@@ -111,11 +67,14 @@ class Projectile_3D:
     def update_alph(self):
         self.alph = np.arctan2(self.v_vec[2], np.sqrt(np.dot(self.v_vec[:2], self.v_vec[:2])))
 
+    def update_w_vec(self):
+        self.w_vec = self.w * np.array([- np.cos(self.lambd), 0, np.sin(self.lambd)])
+
     def update_wv_cross(self):
         self.wv_cross = np.cross(self.w_vec, self.v_vec)
 
-    def update_wr_cross(self):
-        self.wr_cross = np.cross(self.w_vec, self.r_vec)
+    def update_wwr_cross(self):
+        self.wwr_cross = np.cross(self.w_vec, np.cross(self.w_vec, self.r_vec))
 
     def update_all(self):
         self.update_v()
@@ -123,8 +82,9 @@ class Projectile_3D:
         self.update_phi()
         self.update_th()
         self.update_alph()
+        self.update_w_vec()
         self.update_wv_cross()
-        self.update_wr_cross()
+        self.update_wwr_cross()
 
     def set_alph0(self, alph_new):
         self.alph0 = np.radians(alph_new)
@@ -148,6 +108,10 @@ class Motion_3D:    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
 
     def __str__(self):
         return self.name
+
+    def calc_distance(self):
+        self.distance = self.projectile.r * ut.calc_circ_dist([self.projectile.lambd0, self.projectile.phi0],
+                                                [self.projectile.lambd, self.projectile.phi])
 
     #   Second order DEs for a projectile.
     #   Needed for Rk4-algorithm.
@@ -182,33 +146,39 @@ class Motion_3D:    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
             self.r_vec_arr = np.vstack([self.r_vec_arr, self.projectile.r_vec])
 
             Rk4_vx.rk4()
-            Rk4_ax.rk4()
             Rk4_vy.rk4()
-            Rk4_ay.rk4()
             Rk4_vz.rk4()
+            Rk4_ax.rk4()
+            Rk4_ay.rk4()
             Rk4_az.rk4()
 
+            #   Updates max reached height of projectile
+            #   in relation to ground level.
             if (self.projectile.r_vec[2] < Rk4_vz.yi):
-                self.z_max = Rk4_vz.yi -self.projectile.r
+                self.z_max = Rk4_vz.yi - self.projectile.r
 
             self.projectile.t += self.dt
+
             self.projectile.r_vec = np.array([Rk4_vx.yi, Rk4_vy.yi, Rk4_vz.yi])
             self.projectile.v_vec = np.array([Rk4_ax.yi, Rk4_ay.yi, Rk4_az.yi])
             self.projectile.update_all()
-        #   Removes the empty vector.
+
+        #   Removal of the empty vector.
         self.r_vec_arr = self.r_vec_arr[1:]
 
         #   Interpolation of landing point.
-        x_l = interpolate_xl(self.r_vec_arr[-1][0], self.projectile.r_vec[0], self.r_vec_arr[-1][2] - self.projectile.r, self.projectile.r_vec[2] - self.projectile.r)
-        y_l = interpolate_xl(self.r_vec_arr[-1][1], self.projectile.r_vec[1], self.r_vec_arr[-1][2] - self.projectile.r, self.projectile.r_vec[2] - self.projectile.r)
+        x_l = ut.interpolate_xl(self.r_vec_arr[-1][0], self.projectile.r_vec[0], self.r_vec_arr[-1][2] - self.projectile.r, self.projectile.r_vec[2] - self.projectile.r)
+        y_l = ut.interpolate_xl(self.r_vec_arr[-1][1], self.projectile.r_vec[1], self.r_vec_arr[-1][2] - self.projectile.r, self.projectile.r_vec[2] - self.projectile.r)
         self.xy_l = [x_l, y_l]
         self.tl = self.projectile.t - self.dt / 2
 
+        #   Appending the last r_vec
         self.projectile.r_vec = [x_l, y_l, self.projectile.r]
         self.projectile.update_all()
-        self.distance = self.projectile.r * calc_circ_dist([self.projectile.lambd0, self.projectile.phi0],
-                                                [self.projectile.lambd, self.projectile.phi])
         self.r_vec_arr = np.vstack([self.r_vec_arr, self.projectile.r_vec])
+
+        #   Calculation of distance
+        self.calc_distance()
 
 class Motion_3D_drag(Motion_3D):
     #   Assumes uniform air density everywhere.
@@ -232,7 +202,6 @@ class Motion_3D_drag(Motion_3D):
 class Motion_3D_drag_adiabatic(Motion_3D_drag):
     def __init__(self, projectile, dt, name = None, g=9.81, b = 2e-3, a=6.5e-3, alpha=2.5, T0=288.2):   #   Constants as given in compulsory exercise 1 description/appendix. We assume that T0 = 15 C.
         super().__init__(projectile, dt, name, g, b)
-        self.name = name
         self.a = a
         self.alpha = alpha
         self.T0 = T0
@@ -252,53 +221,15 @@ class Motion_3D_drag_adiabatic(Motion_3D_drag):
     def az(self, t, vz):
         return -self.g - self.bpm * self.rhofrac_adiabatic() * self.projectile.v*vz
 
-if (__name__ == "__main__"):
-    th1 = calc_th(COORD_CREPY, COORD_PARIS)
-    proj1 = Projectile_3D(COORD_CREPY, 1640, th1, 33)
-    mo1 = Motion_3D_drag_adiabatic(proj1, 0.01)
-    mo1.calculate_trajectory()
-    mo1_line = np.apply_along_axis(r_vec_to_cartesian, 1, mo1.r_vec_arr)
-    print("Crepy - Paris distance:\t", R_EARTH * calc_circ_dist(np.radians(COORD_CREPY), np.radians(COORD_PARIS)))
-    print("Projectile distance:\t", mo1.distance)
-    print("Paris coords:\t\t", COORD_PARIS)
-    print("Projectile coords:\t", r_vec_to_coord(mo1.r_vec_arr[-1]))
-    '''
-    ========================
-    3D surface (solid color)
-    ========================
-    
-    Demonstrates a very basic plot of a 3D surface using a solid color.
-    '''
+class Motion_3D_drag_adiabatic_coriolis(Motion_3D_drag_adiabatic):
+    def __init__(self, projectile, dt, name = None, g=9.81, b = 2e-3, a=6.5e-3, alpha=2.5, T0=288.2):   #   Constants as given in compulsory exercise 1 description/appendix. We assume that T0 = 15 C.
+        super().__init__(projectile, dt, name, g, b, a, alpha, T0)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_xlabel(r'x')
-    ax.set_ylabel(r'y')
-    ax.set_zlabel(r'z')
-    """
-    u = np.linspace(0, np.pi/4, 100)
-    v = np.linspace(0, np.pi/4, 100)
-    earth = R_EARTH * np.array([np.outer(np.cos(u), np.sin(v)),
-                                np.outer(np.sin(u), np.sin(v)), np.outer(np.ones(np.size(u)),
-                                np.cos(v))])
-    
-    
-    # Plot the surface
-    ax.plot_wireframe(earth[0], earth[1], earth[2], color='b')
-    """
-    crepy = coord_to_cartesian(COORD_CREPY)
-    paris = coord_to_cartesian(COORD_PARIS)
-    crepy_paris = np.radians(np.array([np.linspace(COORD_CREPY[0], COORD_PARIS[0], 100), np.linspace(COORD_CREPY[1], COORD_PARIS[1], 100)]))
-    crepy_paris_line = R_EARTH * np.array([np.cos(crepy_paris[0])*np.cos(crepy_paris[1]), np.cos(crepy_paris[0])*np.sin(crepy_paris[1]), np.sin(crepy_paris[0])])
-    print(mo1_line[0])
-    print(crepy)
-    print("\n", mo1_line[-1], sep="")
-    print(paris)
-    ax.scatter(crepy[0], crepy[1], crepy[2], c="r", marker="^")
-    ax.scatter(paris[0], paris[1], paris[2], c="g", marker="^")
-    ax.plot(crepy_paris_line[0], crepy_paris_line[1], crepy_paris_line[2])
-    ax.plot(mo1_line[:,0], mo1_line[:,1], mo1_line[:,2])
+    def ax(self, t, vx):
+        return -self.bpm * self.rhofrac_adiabatic() * self.projectile.v*vx - 2 * self.projectile.wv_cross[0] - self.projectile.wwr_cross[0]
 
-    ax.view_init(azim=45, elev=45)
+    def ay(self, t, vy):
+        return -self.bpm * self.rhofrac_adiabatic() * self.projectile.v*vy - 2 * self.projectile.wv_cross[1] - self.projectile.wwr_cross[1]
 
-    plt.show()
+    def az(self, t, vz):
+        return -self.g - self.bpm * self.rhofrac_adiabatic() * self.projectile.v*vz - 2 * self.projectile.wv_cross[2] - self.projectile.wwr_cross[2]
