@@ -59,7 +59,7 @@ class Projectile_3D:
         self.lambd = np.pi/2 - self.r_vec[0]/self.r
 
     def update_phi(self):   #   NOTE: lambd has to be updated BEFORE phi.
-        self.phi = self.r_vec[1]/(np.cos(self.lambd)*self.r_vec[2])
+        self.phi = self.r_vec[1]/(np.cos(self.lambd)*self.r)
 
     def update_th(self):
         self.th = np.arctan2(self.v_vec[1], self.v_vec[0])
@@ -67,9 +67,10 @@ class Projectile_3D:
     def update_alph(self):
         self.alph = np.arctan2(self.v_vec[2], np.sqrt(np.dot(self.v_vec[:2], self.v_vec[:2])))
 
-    def update_w_vec(self):
+    def update_w_vec(self): #   NOTE: lambd has to be updated BEFORE w_vec.
         self.w_vec = self.w * np.array([- np.cos(self.lambd), 0, np.sin(self.lambd)])
 
+    #   Cross-products - w_vec has to be updated before these.
     def update_wv_cross(self):
         self.wv_cross = np.cross(self.w_vec, self.v_vec)
 
@@ -88,7 +89,9 @@ class Projectile_3D:
 
     def set_alph0(self, alph_new):
         self.alph0 = np.radians(alph_new)
-        self.reset()
+
+    def set_th0(self, th_new):
+        self.th0 = np.radians(th_new)
 
 class Motion_3D:    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
     def __init__(self, projectile, dt, name=None):
@@ -102,6 +105,7 @@ class Motion_3D:    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
         self.z_max = 0
         self.tl = 0
         self.distance = 0
+        self.th = self.projectile.th
 
         #   Arrays denoting the position of the projectile.
         self.r_vec_arr = np.empty(3)
@@ -159,7 +163,9 @@ class Motion_3D:    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
 
             self.projectile.t += self.dt
 
-            self.projectile.r_vec = np.array([Rk4_vx.yi, Rk4_vy.yi, Rk4_vz.yi])
+            self.projectile.r_vec = np.array([Rk4_vx.yi
+                                              ,Rk4_vy.yi #- self.projectile.r_vec[1] + self.projectile.r * np.sin(Rk4_vx.yi / self.projectile.r) * self.projectile.phi
+                                              ,Rk4_vz.yi])
             self.projectile.v_vec = np.array([Rk4_ax.yi, Rk4_ay.yi, Rk4_az.yi])
             self.projectile.update_all()
 
@@ -177,7 +183,8 @@ class Motion_3D:    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
         self.projectile.update_all()
         self.r_vec_arr = np.vstack([self.r_vec_arr, self.projectile.r_vec])
 
-        #   Calculation of distance
+        #   Updating relevant values of the motion
+        self.th = self.projectile.th
         self.calc_distance()
 
 class Motion_3D_drag(Motion_3D):
@@ -226,10 +233,11 @@ class Motion_3D_drag_adiabatic_coriolis(Motion_3D_drag_adiabatic):
         super().__init__(projectile, dt, name, g, b, a, alpha, T0)
 
     def ax(self, t, vx):
-        return -self.bpm * self.rhofrac_adiabatic() * self.projectile.v*vx - 2 * self.projectile.wv_cross[0] - self.projectile.wwr_cross[0]
+        return -self.bpm * self.rhofrac_adiabatic() * self.projectile.v*vx - 2 * self.projectile.wv_cross[0] #- self.projectile.wwr_cross[0]
 
     def ay(self, t, vy):
-        return -self.bpm * self.rhofrac_adiabatic() * self.projectile.v*vy - 2 * self.projectile.wv_cross[1] - self.projectile.wwr_cross[1]
+        return -self.bpm * self.rhofrac_adiabatic() * self.projectile.v*vy - 2 * self.projectile.wv_cross[1] #- self.projectile.wwr_cross[1]
 
     def az(self, t, vz):
-        return -self.g - self.bpm * self.rhofrac_adiabatic() * self.projectile.v*vz - 2 * self.projectile.wv_cross[2] - self.projectile.wwr_cross[2]
+        return -self.g - self.bpm * self.rhofrac_adiabatic() * self.projectile.v*vz - 2 * self.projectile.wv_cross[2] #- self.projectile.wwr_cross[2]
+

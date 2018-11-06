@@ -24,7 +24,6 @@ def coord_to_cartesian(coord): #    Calculates cartesian coordinates in a unit s
                         np.cos(coord_rad[0]) * np.sin(coord_rad[1]),
                         np.sin(coord_rad[0])])
 
-
 #   Azimuthal equidistant projection
 #   Wiki: https://en.wikipedia.org/wiki/Azimuthal_equidistant_projection
 #       Calculation of the azimuth.
@@ -33,7 +32,8 @@ def calc_th(coord1_deg, coord2_deg): # theta is 0 on the pos x-axis and pi/2 on 
     coord2 = np.radians(coord2_deg)
     return np.rad2deg(np.pi - np.arctan2(np.cos(coord2[0])*np.sin(coord2[1]-coord1[1]),
                      (np.cos(coord1[0]) * np.sin(coord2[0]) - np.sin(coord1[0]) * np.cos(coord2[0]) * np.cos(coord2[1]-coord1[1]))))
-#       Calculation of arc length using the formula of the great circle distance.
+
+#       Calculation of the great circle distance.
 def calc_circ_dist(coord1, coord2):
     return np.arccos(np.sin(coord1[0]) * np.sin(coord2[0]) + np.cos(coord1[0]) * np.cos(coord2[0]) * np.cos(coord2[1]-coord1[1]))
 
