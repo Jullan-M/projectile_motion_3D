@@ -37,5 +37,10 @@ def calc_th(coord1_deg, coord2_deg): # theta is 0 on the pos x-axis and pi/2 on 
 def calc_circ_dist(coord1, coord2):
     return np.arccos(np.sin(coord1[0]) * np.sin(coord2[0]) + np.cos(coord1[0]) * np.cos(coord2[0]) * np.cos(coord2[1]-coord1[1]))
 
+def calc_asimuth(coord1_deg, coord2_deg):
+    coord1, coord2 = np.radians(coord1_deg), np.radians(coord2_deg)
+    return 180-np.rad2deg(np.arctan2(np.cos(coord2[0])*coord2[1] - np.cos(coord1[0])*coord1[1], coord2[0] - coord1[0]))
+
+
 def interpolate_xl( x0, x1, y0, y1):
     return (x0 - y0 * x1 / y1) / (- y0 / y1 + 1)

@@ -4,8 +4,9 @@ __author__ = 'Jullan'
 import numpy as np
 from rk4 import Rk4
 import utilities as ut
+from threading import Thread
 
-class Projectile_3D:
+class Projectile_3D():
     def __init__(self, coord, v0, th0, alph0, m = 106, w = 7.29e-5, r = 6371e3, name = None):  # Latitude, longitude and theta arguments are all in degrees.
         self.name = name
         #   Initial values
@@ -13,7 +14,7 @@ class Projectile_3D:
         self.phi0 = np.radians(coord[1])    #   LONGITUDE
         self.th0 = np.radians(th0)      #   SHOOTING DIRECTION
         self.alph0 = np.radians(alph0)  #   SHOOTING ANGLE
-        self.r0_vec = np.array([ r * (np.pi / 2 - self.lambd0), r * np.cos(self.lambd0) * self.phi0, r ])
+        self.r0_vec = r * np.array([ (np.pi / 2 - self.lambd0), np.cos(self.lambd0) * self.phi0, 1 ])
         self.v0 = v0
 
         #   Constants
@@ -81,6 +82,7 @@ class Projectile_3D:
         self.update_v()
         self.update_lambd()
         self.update_phi()
+        self.update_phi()
         self.update_th()
         self.update_alph()
         self.update_w_vec()
@@ -93,8 +95,9 @@ class Projectile_3D:
     def set_th0(self, th_new):
         self.th0 = np.radians(th_new)
 
-class Motion_3D:    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
+class Motion_3D(Thread):    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
     def __init__(self, projectile, dt, name=None):
+        super().__init__()
         self.name = name
         self.projectile = projectile
         self.dt = dt
@@ -164,7 +167,7 @@ class Motion_3D:    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
             self.projectile.t += self.dt
 
             self.projectile.r_vec = np.array([Rk4_vx.yi
-                                              ,Rk4_vy.yi #- self.projectile.r_vec[1] + self.projectile.r * np.sin(Rk4_vx.yi / self.projectile.r) * self.projectile.phi
+                                              ,Rk4_vy.yi
                                               ,Rk4_vz.yi])
             self.projectile.v_vec = np.array([Rk4_ax.yi, Rk4_ay.yi, Rk4_az.yi])
             self.projectile.update_all()
@@ -186,6 +189,9 @@ class Motion_3D:    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
         #   Updating relevant values of the motion
         self.th = self.projectile.th
         self.calc_distance()
+
+    def run(self):
+        self.calculate_trajectory()
 
 class Motion_3D_drag(Motion_3D):
     #   Assumes uniform air density everywhere.
