@@ -27,7 +27,7 @@ def coord_to_cartesian(coord): #    Calculates cartesian coordinates in a unit s
 #   Azimuthal equidistant projection
 #   Wiki: https://en.wikipedia.org/wiki/Azimuthal_equidistant_projection
 #       Calculation of the azimuth.
-def calc_th(coord1_deg, coord2_deg): # theta is 0 on the pos x-axis and pi/2 on the pos y-axis in the defined coordinate system
+def calc_azimuth(coord1_deg, coord2_deg): # theta is 0 on the pos x-axis and pi/2 on the pos y-axis in the defined coordinate system
     coord1 = np.radians(coord1_deg)
     coord2 = np.radians(coord2_deg)
     return np.rad2deg(np.pi - np.arctan2(np.cos(coord2[0])*np.sin(coord2[1]-coord1[1]),
@@ -37,7 +37,7 @@ def calc_th(coord1_deg, coord2_deg): # theta is 0 on the pos x-axis and pi/2 on 
 def calc_circ_dist(coord1, coord2):
     return np.arccos(np.sin(coord1[0]) * np.sin(coord2[0]) + np.cos(coord1[0]) * np.cos(coord2[0]) * np.cos(coord2[1]-coord1[1]))
 
-def calc_asimuth(coord1_deg, coord2_deg):
+def calc_th(coord1_deg, coord2_deg):
     coord1, coord2 = np.radians(coord1_deg), np.radians(coord2_deg)
     return 180-np.rad2deg(np.arctan2(np.cos(coord2[0])*coord2[1] - np.cos(coord1[0])*coord1[1], coord2[0] - coord1[0]))
 

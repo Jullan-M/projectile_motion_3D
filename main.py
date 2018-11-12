@@ -16,11 +16,8 @@ class Plotter:
     def __init__(self, motion):
         self.motion = motion
         #   Altitude vs. distance plot
-        self.dist = np.sqrt(np.einsum('ij,ij->i', motion.r_vec_arr[:,:2] - motion.r_vec_arr[0,:2], motion.r_vec_arr[:,:2] - motion.r_vec_arr[0,:2]))
-            #   self.motion.projectile.r * ut.calc_circ_dist(np.array([self.motion.projectile.lambd0, self.motion.projectile.phi0]),
-            #                                                     np.array([np.pi/2 - np.transpose(self.motion.r_vec_arr)[0]/self.motion.projectile.r,
-            #                                                               np.transpose(self.motion.r_vec_arr)[1] / (self.motion.projectile.r * np.cos(np.transpose(self.motion.r_vec_arr)[0]/self.motion.projectile.r))]))
-            #   np.sqrt(np.einsum('ij,ij->i', motion.r_vec_arr[:,:2] - motion.r_vec_arr[0,:2], motion.r_vec_arr[:,:2] - motion.r_vec_arr[0,:2])) #    dot product of the 2 first indexes of the r_vecs and then sqrt
+        self.dist = self.motion.projectile.r * self.motion.circ_dist_arr
+        #   np.sqrt(np.einsum('ij,ij->i', motion.r_vec_arr[:,:2] - motion.r_vec_arr[0,:2], motion.r_vec_arr[:,:2] - motion.r_vec_arr[0,:2])) #    dot product of the 2 first indexes of the r_vecs and then sqrt
         self.height = motion.r_vec_arr[:,2] - self.motion.projectile.r
         #   Latitude vs. longitude plot
         self.lat = np.pi / 2 - motion.r_vec_arr[:, 0] / self.motion.projectile.r
@@ -33,20 +30,18 @@ class Plotter:
         self.line_3d = np.transpose(np.apply_along_axis(ut.r_vec_to_cartesian, 1, motion.r_vec_arr))
 
 if (__name__ == "__main__"):
-    th1 = ut.calc_asimuth(COORD_CREPY, COORD_PARIS)
+    azimuth = ut.calc_azimuth(COORD_CREPY, COORD_PARIS)
+    th1 = ut.calc_th(COORD_CREPY, COORD_PARIS)
     add = 0
-    alph0 = 34.6851  #   34.6851
+    alph0 = 34.185 #   34.6851 - without curvature corrections    #   max travel distance: 51.3  #   34.185, 68.21956 - best i can do
     proj1 = Projectile_3D(COORD_CREPY, 1640, th1 + add, alph0)
     proj2 = Projectile_3D(COORD_CREPY, 1640, th1 + add, alph0)
     mo1 = Motion_3D_drag_adiabatic(proj1, 0.01)
     mo2 = Motion_3D_drag_adiabatic_coriolis(proj2, 0.01)
     motions = [mo1, mo2]
     start = timeit.default_timer()
-    for mo in motions:
-        mo.start()
-
-    for mo in motions:
-        mo.join()
+    mo1.calculate_trajectory()
+    mo2.calculate_trajectory()
     stop = timeit.default_timer()
     print("Time:", stop - start)
 
@@ -63,11 +58,13 @@ if (__name__ == "__main__"):
 
     print("Crepy coords:\t\t", COORD_CREPY, "deg")
     print("Paris coords:\t\t", COORD_PARIS, "deg")
-    print("Crepy - Paris azimuth:\t", th1, "deg")
+    print("Crepy - Paris azimuth:\t", azimuth, "deg")
+    print("Shooting direction:\t", th1, "deg")
     print("Crepy - Paris distance:\t", crepy_paris_dist, "meters")
 
     print("\t=== CORIOLIS OFF ===")
     print("Max height:\t", mo1.z_max, "m")
+    print("Time:\t", mo1.tl, "s")
     print("Coords:\t", ut.r_vec_to_coord(mo1.r_vec_arr[-1]), "deg")
     print("Distance:\t", mo1.distance, "m")
     print("Angle:\t", 360 + np.rad2deg(mo1.th), "deg\tstart:\t", np.rad2deg(proj1.th0), "deg")
@@ -75,6 +72,7 @@ if (__name__ == "__main__"):
 
     print("\t=== CORIOLIS ON ===")
     print("Max height:\t", mo2.z_max, "m\tdelta =", mo2.z_max - mo1.z_max, "m")
+    print("Time:\t", mo2.tl, "s")
     print("Coords:\t", ut.r_vec_to_coord(mo2.r_vec_arr[-1]), "deg")
     print("Distance:\t", mo2.distance, "m\tdelta =" ,mo2.distance-mo1.distance, "m")
     print("Angle:\t", 360 + np.rad2deg(mo2.th), "deg\t\tdelta =", np.rad2deg(mo2.th) - np.rad2deg(mo1.th), "deg")
@@ -112,7 +110,7 @@ if (__name__ == "__main__"):
 
     plt.legend()
     ax.view_init(azim=-45, elev=45)
-    # plt.savefig("trajectory.pdf")
+    plt.savefig("3D_trajectory.pdf")
     plt.show()
 
     plt.figure()
@@ -124,6 +122,7 @@ if (__name__ == "__main__"):
     plt.ylabel(r"Height, $z$", fontsize=16)
     plt.legend()
     plt.grid()
+    plt.savefig("2D_trajectory.pdf")
     plt.show()
 
     plt.figure()
@@ -133,10 +132,11 @@ if (__name__ == "__main__"):
     plt.plot(plot2.long[-1], plot2.lat[-1], "mx")
     plt.plot(COORD_CREPY[1], COORD_CREPY[0], 'r^', label=r"Crépy")
     plt.plot(COORD_PARIS[1], COORD_PARIS[0], 'g^', label=r"Paris")
-    #plt.xlim(left=2.3, right=2.4)    #   (left=2.35, right=2.351)
-    #plt.ylim(bottom=48.8, top=48.9) #   (bottom=48.856, top=48.857)
+    #plt.xlim(left=2.3508, right=2.3509)#plt.xlim(left=2.350, right=2.351)    #   (left=2.3508, right=2.3509)
+    #plt.ylim(bottom=48.8566, top=48.8567)#plt.ylim(bottom=48.856, top=48.857) #   (bottom=48.8566, top=48.8567)
     plt.xlabel(r"Longitude", fontsize=16)
     plt.ylabel(r"Latitude", fontsize=16)
     plt.legend()
     plt.grid()
+    plt.savefig("lat_vs_long_trajectory.pdf")
     plt.show()

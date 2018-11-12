@@ -27,6 +27,7 @@ class Projectile_3D():
         self.r_vec = np.copy(self.r0_vec)
         self.lambd = self.lambd0
         self.phi = self.phi0
+        self.circ_dist = 0
         self.th = self.th0
         self.alph = self.alph0
         self.v = self.v0
@@ -53,14 +54,17 @@ class Projectile_3D():
         self.wwr_cross = np.cross(self.w_vec, np.cross(self.w_vec, self.r_vec))
         self.t = 0
 
-    def update_v(self):
-        self.v = np.sqrt(np.dot(self.v_vec, self.v_vec))
-
     def update_lambd(self):
         self.lambd = np.pi/2 - self.r_vec[0]/self.r
 
     def update_phi(self):   #   NOTE: lambd has to be updated BEFORE phi.
         self.phi = self.r_vec[1]/(np.cos(self.lambd)*self.r)
+
+    def update_circ_dist(self):
+        self.circ_dist = ut.calc_circ_dist([self.lambd0, self.phi0], [self.lambd, self.phi])
+
+    def update_v(self):
+        self.v = np.sqrt(np.dot(self.v_vec, self.v_vec))
 
     def update_th(self):
         self.th = np.arctan2(self.v_vec[1], self.v_vec[0])
@@ -79,10 +83,10 @@ class Projectile_3D():
         self.wwr_cross = np.cross(self.w_vec, np.cross(self.w_vec, self.r_vec))
 
     def update_all(self):
-        self.update_v()
         self.update_lambd()
         self.update_phi()
-        self.update_phi()
+        self.update_circ_dist()
+        self.update_v()
         self.update_th()
         self.update_alph()
         self.update_w_vec()
@@ -110,15 +114,15 @@ class Motion_3D(Thread):    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
         self.distance = 0
         self.th = self.projectile.th
 
-        #   Arrays denoting the position of the projectile.
+        #   Arrays
         self.r_vec_arr = np.empty(3)
+        self.circ_dist_arr = np.array([])
 
     def __str__(self):
         return self.name
 
     def calc_distance(self):
-        self.distance = self.projectile.r * ut.calc_circ_dist([self.projectile.lambd0, self.projectile.phi0],
-                                                [self.projectile.lambd, self.projectile.phi])
+        self.distance = self.projectile.r * self.projectile.circ_dist
 
     #   Second order DEs for a projectile.
     #   Needed for Rk4-algorithm.
@@ -151,6 +155,7 @@ class Motion_3D(Thread):    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
 
         while(self.projectile.r_vec[2] >= self.projectile.r):  #    While the projectile is above ground.
             self.r_vec_arr = np.vstack([self.r_vec_arr, self.projectile.r_vec])
+            self.circ_dist_arr = np.append(self.circ_dist_arr, self.projectile.circ_dist)
 
             Rk4_vx.rk4()
             Rk4_vy.rk4()
@@ -159,18 +164,30 @@ class Motion_3D(Thread):    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
             Rk4_ay.rk4()
             Rk4_az.rk4()
 
-            #   Updates max reached height of projectile
-            #   in relation to ground level.
-            if (self.projectile.r_vec[2] < Rk4_vz.yi):
-                self.z_max = Rk4_vz.yi - self.projectile.r
-
             self.projectile.t += self.dt
 
-            self.projectile.r_vec = np.array([Rk4_vx.yi
-                                              ,Rk4_vy.yi
-                                              ,Rk4_vz.yi])
+            #    self.lambd = np.pi / 2 - self.r_vec[0] / self.r
+            #    self.phi = self.r_vec[1] / (np.cos(self.lambd) * self.r)
+
+            self.projectile.r_vec[0] = Rk4_vx.yi
+            self.projectile.r_vec[1] = Rk4_vy.yi
+            self.projectile.update_lambd()
+            self.projectile.update_phi()
+            self.projectile.update_circ_dist()
+            #   Updates max reached height of projectile
+            #   in relation to ground level.
+            curvatureHeight = self.projectile.r * (1-np.cos(self.projectile.circ_dist))
+            if (self.projectile.r_vec[2] < Rk4_vz.yi + curvatureHeight):
+                self.z_max = Rk4_vz.yi - self.projectile.r + curvatureHeight
+            self.projectile.r_vec[2] = Rk4_vz.yi + curvatureHeight
+            self.projectile.update_wwr_cross()
+
             self.projectile.v_vec = np.array([Rk4_ax.yi, Rk4_ay.yi, Rk4_az.yi])
-            self.projectile.update_all()
+            self.projectile.update_v()
+            self.projectile.update_th()
+            self.projectile.update_alph()
+            self.projectile.update_w_vec()
+            self.projectile.update_wv_cross()
 
         #   Removal of the empty vector.
         self.r_vec_arr = self.r_vec_arr[1:]
@@ -185,6 +202,7 @@ class Motion_3D(Thread):    #   VIRTUAL CLASS - USE INHERITED CLASSES INSTEAD
         self.projectile.r_vec = [x_l, y_l, self.projectile.r]
         self.projectile.update_all()
         self.r_vec_arr = np.vstack([self.r_vec_arr, self.projectile.r_vec])
+        self.circ_dist_arr = np.append(self.circ_dist_arr, self.projectile.circ_dist)
 
         #   Updating relevant values of the motion
         self.th = self.projectile.th
